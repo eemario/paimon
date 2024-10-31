@@ -160,7 +160,8 @@ public class BitmapFileIndex implements FileIndexer {
         }
     }
 
-    private static class Reader extends FileIndexReader {
+    /** Reader for BitmapFileIndex. */
+    public static class Reader extends FileIndexReader {
 
         private final SeekableInputStream seekableInputStream;
         private final int headStart;
@@ -174,6 +175,30 @@ public class BitmapFileIndex implements FileIndexer {
         public Reader(SeekableInputStream seekableInputStream, int start, int length) {
             this.seekableInputStream = seekableInputStream;
             this.headStart = start;
+        }
+
+        public BitmapFileIndexMeta getBitmapFileIndexMeta(DataType dataType) {
+            if (this.bitmapFileIndexMeta == null) {
+                this.valueMapper = getValueMapper(dataType);
+                try {
+                    seekableInputStream.seek(headStart);
+                    this.version = seekableInputStream.read();
+                    if (this.version > VERSION_1) {
+                        throw new RuntimeException(
+                                String.format(
+                                        "read index file fail, "
+                                                + "your plugin version is lower than %d",
+                                        this.version));
+                    }
+                    DataInput input = new DataInputStream(seekableInputStream);
+                    this.bitmapFileIndexMeta = new BitmapFileIndexMeta(dataType);
+                    this.bitmapFileIndexMeta.deserialize(input);
+                    bodyStart = (int) seekableInputStream.getPos();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return this.bitmapFileIndexMeta;
         }
 
         @Override

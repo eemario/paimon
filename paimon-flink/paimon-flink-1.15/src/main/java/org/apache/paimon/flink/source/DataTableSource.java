@@ -31,6 +31,7 @@ import javax.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /** A {@link BaseDataTableSource} for Flink 1.15. */
 public class DataTableSource extends BaseDataTableSource {
@@ -96,5 +97,15 @@ public class DataTableSource extends BaseDataTableSource {
     @Override
     protected List<String> dynamicPartitionFilteringFields() {
         return Collections.emptyList();
+    }
+
+    @Override
+    protected Map<String, List<String>> runtimeFilteringFields() {
+        return Collections.emptyMap();
+    }
+
+    @Override
+    protected Map<String, List<Integer>> runtimeFilteringFieldIndices() {
+        return Collections.emptyMap();
     }
 }

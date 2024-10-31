@@ -23,6 +23,7 @@ import org.apache.paimon.flink.metrics.FlinkMetricRegistry;
 import org.apache.paimon.flink.source.assigners.FIFOSplitAssigner;
 import org.apache.paimon.flink.source.assigners.PreAssignSplitAssigner;
 import org.apache.paimon.flink.source.assigners.SplitAssigner;
+import org.apache.paimon.table.Table;
 import org.apache.paimon.table.source.InnerTableScan;
 import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.TableScan;
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.paimon.flink.FlinkConnectorOptions.SplitAssignMode;
 
@@ -48,6 +50,10 @@ public class StaticFileStoreSource extends FlinkSource {
     private final SplitAssignMode splitAssignMode;
 
     @Nullable private final DynamicPartitionFilteringInfo dynamicPartitionFilteringInfo;
+
+    @Nullable private final Map<String, List<String>> runtimeFilteringPushDownFields;
+    @Nullable private final Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices;
+    @Nullable private final Table table;
 
     public StaticFileStoreSource(
             ReadBuilder readBuilder,
@@ -64,10 +70,35 @@ public class StaticFileStoreSource extends FlinkSource {
             SplitAssignMode splitAssignMode,
             @Nullable DynamicPartitionFilteringInfo dynamicPartitionFilteringInfo,
             @Nullable NestedProjectedRowData rowData) {
+        this(
+                readBuilder,
+                limit,
+                splitBatchSize,
+                splitAssignMode,
+                dynamicPartitionFilteringInfo,
+                null,
+                null,
+                null,
+                rowData);
+    }
+
+    public StaticFileStoreSource(
+            ReadBuilder readBuilder,
+            @Nullable Long limit,
+            int splitBatchSize,
+            SplitAssignMode splitAssignMode,
+            @Nullable DynamicPartitionFilteringInfo dynamicPartitionFilteringInfo,
+            @Nullable Map<String, List<String>> runtimeFilteringPushDownFields,
+            @Nullable Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices,
+            @Nullable Table table,
+            @Nullable NestedProjectedRowData rowData) {
         super(readBuilder, limit, rowData);
         this.splitBatchSize = splitBatchSize;
         this.splitAssignMode = splitAssignMode;
         this.dynamicPartitionFilteringInfo = dynamicPartitionFilteringInfo;
+        this.runtimeFilteringPushDownFields = runtimeFilteringPushDownFields;
+        this.runtimeFilteringPushDownFieldIndices = runtimeFilteringPushDownFieldIndices;
+        this.table = table;
     }
 
     @Override
@@ -83,8 +114,19 @@ public class StaticFileStoreSource extends FlinkSource {
                 checkpoint == null ? getSplits(context) : checkpoint.splits();
         SplitAssigner splitAssigner =
                 createSplitAssigner(context, splitBatchSize, splitAssignMode, splits);
+        // passes readBuilder to SplitEnumerator for runtime filter push down and split parameters
+        // to create a new split assigner
         return new StaticFileStoreSplitEnumerator(
-                context, null, splitAssigner, dynamicPartitionFilteringInfo);
+                context,
+                null,
+                splitAssigner,
+                dynamicPartitionFilteringInfo,
+                readBuilder,
+                splitBatchSize,
+                splitAssignMode,
+                runtimeFilteringPushDownFields,
+                runtimeFilteringPushDownFieldIndices,
+                table);
     }
 
     private List<FileStoreSourceSplit> getSplits(SplitEnumeratorContext context) {
