@@ -29,6 +29,8 @@ import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.table.data.RowData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -37,6 +39,8 @@ import static org.apache.paimon.disk.IOManagerImpl.splitPaths;
 /** A Flink {@link Source} for paimon. */
 public abstract class FlinkSource
         implements Source<RowData, FileStoreSourceSplit, PendingSplitsCheckpoint> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(FlinkSource.class);
 
     private static final long serialVersionUID = 1L;
 

@@ -57,6 +57,7 @@ import javax.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -188,7 +189,9 @@ public abstract class BaseDataTableSource extends FlinkTableSource
                         .predicate(predicate)
                         .limit(limit)
                         .watermarkStrategy(watermarkStrategy)
-                        .dynamicPartitionFilteringFields(dynamicPartitionFilteringFields());
+                        .dynamicPartitionFilteringFields(dynamicPartitionFilteringFields())
+                        .runtimeFilteringPushDownFields(runtimeFilteringFields())
+                        .runtimeFilteringPushDownFieldIndices(runtimeFilteringFieldIndices());
 
         return new PaimonDataStreamScanProvider(
                 !streaming,
@@ -223,6 +226,10 @@ public abstract class BaseDataTableSource extends FlinkTableSource
     }
 
     protected abstract List<String> dynamicPartitionFilteringFields();
+
+    protected abstract Map<String, List<String>> runtimeFilteringFields();
+
+    protected abstract Map<String, List<Integer>> runtimeFilteringFieldIndices();
 
     @Override
     public void applyWatermark(WatermarkStrategy<RowData> watermarkStrategy) {
