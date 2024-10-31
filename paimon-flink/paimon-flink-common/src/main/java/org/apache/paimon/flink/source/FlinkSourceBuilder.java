@@ -60,6 +60,7 @@ import org.apache.flink.types.Row;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.flink.table.types.utils.TypeConversions.fromLogicalToDataType;
@@ -91,6 +92,8 @@ public class FlinkSourceBuilder {
     @Nullable private Long limit;
     @Nullable private WatermarkStrategy<RowData> watermarkStrategy;
     @Nullable private DynamicPartitionFilteringInfo dynamicPartitionFilteringInfo;
+    @Nullable private Map<String, List<String>> runtimeFilteringPushDownFields;
+    @Nullable private Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices;
 
     public FlinkSourceBuilder(Table table) {
         this.table = table;
@@ -166,6 +169,31 @@ public class FlinkSourceBuilder {
         return this;
     }
 
+    public FlinkSourceBuilder runtimeFilteringPushDownFields(
+            Map<String, List<String>> runtimeFilteringPushDownFields) {
+        if (runtimeFilteringPushDownFields != null && !runtimeFilteringPushDownFields.isEmpty()) {
+            checkState(
+                    table instanceof FileStoreTable,
+                    "Only Paimon FileStoreTable supports runtime filtering but get %s.",
+                    table.getClass().getName());
+            this.runtimeFilteringPushDownFields = runtimeFilteringPushDownFields;
+        }
+        return this;
+    }
+
+    public FlinkSourceBuilder runtimeFilteringPushDownFieldIndices(
+            Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices) {
+        if (runtimeFilteringPushDownFieldIndices != null
+                && !runtimeFilteringPushDownFieldIndices.isEmpty()) {
+            checkState(
+                    table instanceof FileStoreTable,
+                    "Only Paimon FileStoreTable supports runtime filtering but get %s.",
+                    table.getClass().getName());
+            this.runtimeFilteringPushDownFieldIndices = runtimeFilteringPushDownFieldIndices;
+        }
+        return this;
+    }
+
     @Deprecated
     FlinkSourceBuilder logSourceProvider(LogSourceProvider logSourceProvider) {
         this.logSourceProvider = logSourceProvider;
@@ -193,6 +221,9 @@ public class FlinkSourceBuilder {
                         options.get(FlinkConnectorOptions.SCAN_SPLIT_ENUMERATOR_BATCH_SIZE),
                         options.get(FlinkConnectorOptions.SCAN_SPLIT_ENUMERATOR_ASSIGN_MODE),
                         dynamicPartitionFilteringInfo,
+                        runtimeFilteringPushDownFields,
+                        runtimeFilteringPushDownFieldIndices,
+                        table,
                         outerProject()));
     }
 
