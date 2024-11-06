@@ -19,6 +19,7 @@
 package org.apache.paimon.flink.source;
 
 import org.apache.paimon.fileindex.FileIndexOptions;
+import org.apache.paimon.flink.incremental.IncrementalProcessingUtils;
 import org.apache.paimon.flink.log.LogStoreTableFactory;
 import org.apache.paimon.options.Options;
 import org.apache.paimon.predicate.Predicate;
@@ -28,8 +29,10 @@ import org.apache.paimon.table.Table;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.connector.source.RuntimeFilterPushDownFieldInfo;
+import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.abilities.SupportsDynamicFiltering;
 import org.apache.flink.table.connector.source.abilities.SupportsRuntimeFilterPushDown;
+import org.apache.flink.table.connector.source.abilities.SupportsScanRange;
 import org.apache.flink.table.connector.source.abilities.SupportsStatisticReport;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicTableFactory;
@@ -53,7 +56,8 @@ import static org.apache.paimon.utils.Preconditions.checkState;
 public class DataTableSource extends BaseDataTableSource
         implements SupportsStatisticReport,
                 SupportsDynamicFiltering,
-                SupportsRuntimeFilterPushDown {
+                SupportsRuntimeFilterPushDown,
+                SupportsScanRange {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataTableSource.class);
 
@@ -246,5 +250,24 @@ public class DataTableSource extends BaseDataTableSource
     @Override
     protected Map<String, List<Integer>> runtimeFilteringFieldIndices() {
         return runtimeFilteringPushDownFieldIndices;
+    }
+
+    @Override
+    public ScanTableSource applyScanRange(long start, long end) {
+        Table newTable = IncrementalProcessingUtils.newTableWithScanRange(table, start, end);
+        return new DataTableSource(
+                tableIdentifier,
+                newTable,
+                streaming,
+                context,
+                logStoreTableFactory,
+                predicate,
+                projectFields,
+                limit,
+                watermarkStrategy,
+                dynamicPartitionFilteringFields,
+                runtimeFilteringPushDownFields,
+                runtimeFilteringPushDownFieldIndices,
+                isBatchCountStar);
     }
 }
