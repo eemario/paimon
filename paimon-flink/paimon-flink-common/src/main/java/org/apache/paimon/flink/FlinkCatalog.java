@@ -19,6 +19,7 @@
 package org.apache.paimon.flink;
 
 import org.apache.paimon.CoreOptions;
+import org.apache.paimon.Snapshot;
 import org.apache.paimon.TableType;
 import org.apache.paimon.annotation.VisibleForTesting;
 import org.apache.paimon.catalog.Catalog;
@@ -1628,5 +1629,39 @@ public class FlinkCatalog extends AbstractCatalog {
                 MATERIALIZED_TABLE_REFRESH_STATUS.key(),
                 MATERIALIZED_TABLE_REFRESH_HANDLER_DESCRIPTION.key(),
                 MATERIALIZED_TABLE_REFRESH_HANDLER_BYTES.key());
+    }
+
+    /**
+     * Do not annotate with <code>@override</code> here to maintain compatibility with Flink 1.20-.
+     */
+    public long getTableTimestamp(ObjectPath tablePath, long timestamp)
+            throws TableNotExistException, CatalogException {
+        Table table;
+        try {
+            table = catalog().getTable(toIdentifier(tablePath));
+        } catch (Catalog.TableNotExistException e) {
+            throw new TableNotExistException(getName(), tablePath);
+        }
+        if (!(table instanceof FileStoreTable)) {
+            throw new CatalogException(
+                    String.format(
+                            "table %s.%s is a %s, not a FileStoreTable. This should not happen.",
+                            getName(), tablePath, table.getClass()));
+        }
+        FileStoreTable fileStoreTable = (FileStoreTable) table;
+        Snapshot snapshot = fileStoreTable.snapshotManager().earlierOrEqualTimeMills(timestamp);
+        if (snapshot != null && snapshot.timeMillis() <= timestamp) {
+            // earlierOrEqualTimeMills will return the earliest snapshot when there is no snapshot
+            // earlier or equal to the timestamp
+            return snapshot.timeMillis();
+        }
+        // no snapshot earlier or equal to the timestamp
+        LOG.info(
+                "catalog {} does not have any snapshot for table {} earlier or equal to timestamp {}.",
+                getName(),
+                tablePath,
+                timestamp);
+        // use -1 to represent EARLIEST
+        return -1;
     }
 }
