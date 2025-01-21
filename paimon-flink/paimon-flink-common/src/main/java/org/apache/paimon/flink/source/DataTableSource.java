@@ -18,6 +18,7 @@
 
 package org.apache.paimon.flink.source;
 
+import org.apache.paimon.flink.incremental.IncrementalProcessingUtils;
 import org.apache.paimon.flink.log.LogStoreTableFactory;
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.stats.ColStats;
@@ -26,7 +27,9 @@ import org.apache.paimon.table.Table;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.table.catalog.ObjectIdentifier;
+import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.abilities.SupportsDynamicFiltering;
+import org.apache.flink.table.connector.source.abilities.SupportsScanRange;
 import org.apache.flink.table.connector.source.abilities.SupportsStatisticReport;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicTableFactory;
@@ -49,7 +52,7 @@ import static org.apache.paimon.utils.Preconditions.checkState;
  * SupportsDynamicFiltering}.
  */
 public class DataTableSource extends BaseDataTableSource
-        implements SupportsStatisticReport, SupportsDynamicFiltering {
+        implements SupportsStatisticReport, SupportsDynamicFiltering, SupportsScanRange {
 
     @Nullable private List<String> dynamicPartitionFilteringFields;
 
@@ -182,5 +185,22 @@ public class DataTableSource extends BaseDataTableSource
                 .setMax(colStats.max().isPresent() ? colStats.max().get() : null)
                 .setMin(colStats.min().isPresent() ? colStats.min().get() : null)
                 .build();
+    }
+
+    @Override
+    public ScanTableSource applyScanRange(long start, long end) {
+        Table newTable = IncrementalProcessingUtils.newTableWithScanRange(table, start, end);
+        return new DataTableSource(
+                tableIdentifier,
+                newTable,
+                streaming,
+                context,
+                logStoreTableFactory,
+                predicate,
+                projectFields,
+                limit,
+                watermarkStrategy,
+                dynamicPartitionFilteringFields,
+                countPushed);
     }
 }
