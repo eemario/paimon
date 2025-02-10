@@ -16,20 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.flink.table.connector.source.abilities;
+package org.apache.flink.table.connector.source;
 
-import org.apache.flink.table.connector.source.RuntimeFilterPushDownFieldInfo;
-import org.apache.flink.table.connector.source.RuntimeFilterType;
-import org.apache.flink.table.connector.source.ScanTableSource;
+/** Runtime filter with in filter type. */
+public class InFilterRuntimeFilterType implements RuntimeFilterType {
+    public static final String TYPE_NAME = "InFilter";
 
-import java.util.List;
-import java.util.Map;
+    @Override
+    public int hashCode() {
+        return TYPE_NAME.hashCode();
+    }
 
-/** Enables to push down runtime filters into a {@link ScanTableSource}. */
-public interface SupportsRuntimeFilterPushDown {
-    List<RuntimeFilterPushDownFieldInfo> listAcceptedRuntimeFilterPushDownFields();
+    @Override
+    public String toString() {
+        return TYPE_NAME;
+    }
 
-    void applyRuntimeFiltering(
-            Map<RuntimeFilterType, List<String>> pushDownFieldNames,
-            Map<RuntimeFilterType, List<Integer>> pushDownFieldIndices);
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof InFilterRuntimeFilterType;
+    }
 }

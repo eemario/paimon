@@ -16,20 +16,9 @@
  * limitations under the License.
  */
 
-package org.apache.flink.table.connector.source.abilities;
+package org.apache.flink.table.connector.source;
 
-import org.apache.flink.table.connector.source.RuntimeFilterPushDownFieldInfo;
-import org.apache.flink.table.connector.source.RuntimeFilterType;
-import org.apache.flink.table.connector.source.ScanTableSource;
+import java.io.Serializable;
 
-import java.util.List;
-import java.util.Map;
-
-/** Enables to push down runtime filters into a {@link ScanTableSource}. */
-public interface SupportsRuntimeFilterPushDown {
-    List<RuntimeFilterPushDownFieldInfo> listAcceptedRuntimeFilterPushDownFields();
-
-    void applyRuntimeFiltering(
-            Map<RuntimeFilterType, List<String>> pushDownFieldNames,
-            Map<RuntimeFilterType, List<Integer>> pushDownFieldIndices);
-}
+/** Type of runtime filter. */
+public interface RuntimeFilterType extends Serializable {}

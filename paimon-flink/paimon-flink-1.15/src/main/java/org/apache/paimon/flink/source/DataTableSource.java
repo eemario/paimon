@@ -24,6 +24,7 @@ import org.apache.paimon.table.Table;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.table.catalog.ObjectIdentifier;
+import org.apache.flink.table.connector.source.RuntimeFilterType;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicTableFactory;
 
@@ -100,12 +101,12 @@ public class DataTableSource extends BaseDataTableSource {
     }
 
     @Override
-    protected Map<String, List<String>> runtimeFilteringFields() {
+    protected Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames() {
         return Collections.emptyMap();
     }
 
     @Override
-    protected Map<String, List<Integer>> runtimeFilteringFieldIndices() {
+    protected Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices() {
         return Collections.emptyMap();
     }
 }

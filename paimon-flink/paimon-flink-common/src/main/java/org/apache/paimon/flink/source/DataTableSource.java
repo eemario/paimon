@@ -30,7 +30,10 @@ import org.apache.paimon.table.Table;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.table.catalog.ObjectIdentifier;
+import org.apache.flink.table.connector.source.BloomFilterRuntimeFilterType;
+import org.apache.flink.table.connector.source.InFilterRuntimeFilterType;
 import org.apache.flink.table.connector.source.RuntimeFilterPushDownFieldInfo;
+import org.apache.flink.table.connector.source.RuntimeFilterType;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.abilities.SupportsDynamicFiltering;
 import org.apache.flink.table.connector.source.abilities.SupportsRuntimeFilterPushDown;
@@ -53,6 +56,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.paimon.fileindex.bitmap.BitmapFileIndexFactory.BITMAP_INDEX;
+import static org.apache.paimon.fileindex.bloomfilter.BloomFilterFileIndexFactory.BLOOM_FILTER;
 import static org.apache.paimon.utils.Preconditions.checkState;
 
 /**
@@ -69,8 +74,8 @@ public class DataTableSource extends BaseDataTableSource
 
     @Nullable private List<String> dynamicPartitionFilteringFields;
 
-    @Nullable private Map<String, List<String>> runtimeFilteringPushDownFields;
-    @Nullable private Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices;
+    @Nullable private Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames;
+    @Nullable private Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices;
 
     public DataTableSource(
             ObjectIdentifier tableIdentifier,
@@ -131,8 +136,8 @@ public class DataTableSource extends BaseDataTableSource
             @Nullable Long limit,
             @Nullable WatermarkStrategy<RowData> watermarkStrategy,
             @Nullable List<String> dynamicPartitionFilteringFields,
-            @Nullable Map<String, List<String>> runtimeFilteringPushDownFields,
-            @Nullable Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices,
+            @Nullable Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames,
+            @Nullable Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices,
             @Nullable Long countPushed) {
         super(
                 tableIdentifier,
@@ -146,8 +151,8 @@ public class DataTableSource extends BaseDataTableSource
                 watermarkStrategy,
                 countPushed);
         this.dynamicPartitionFilteringFields = dynamicPartitionFilteringFields;
-        this.runtimeFilteringPushDownFields = runtimeFilteringPushDownFields;
-        this.runtimeFilteringPushDownFieldIndices = runtimeFilteringPushDownFieldIndices;
+        this.runtimeFilterPushDownFieldNames = runtimeFilterPushDownFieldNames;
+        this.runtimeFilterPushDownFieldIndices = runtimeFilterPushDownFieldIndices;
     }
 
     @Override
@@ -163,8 +168,8 @@ public class DataTableSource extends BaseDataTableSource
                 limit,
                 watermarkStrategy,
                 dynamicPartitionFilteringFields,
-                runtimeFilteringPushDownFields,
-                runtimeFilteringPushDownFieldIndices,
+                runtimeFilterPushDownFieldNames,
+                runtimeFilterPushDownFieldIndices,
                 countPushed);
     }
 
@@ -265,24 +270,38 @@ public class DataTableSource extends BaseDataTableSource
                 ((DataTable) table).coreOptions().indexColumnsOptions().entrySet()) {
             FileIndexOptions.Column column = entry.getKey();
             if (column.isNestedColumn()) {
-                // TODO how to handle nested columns?
+                // cannot support nested columns now
                 continue;
             }
-            entry.getValue()
-                    .keySet()
-                    .forEach(
-                            indexType ->
-                                    result.add(
-                                            new RuntimeFilterPushDownFieldInfo(
-                                                    column.getColumnName(), indexType)));
+
+            for (Map.Entry<String, Options> indexType : entry.getValue().entrySet()) {
+                switch (indexType.getKey()) {
+                    case BLOOM_FILTER:
+                        result.add(
+                                new RuntimeFilterPushDownFieldInfo(
+                                        column.getColumnName(),
+                                        new BloomFilterRuntimeFilterType()));
+                        break;
+                    case BITMAP_INDEX:
+                        result.add(
+                                new RuntimeFilterPushDownFieldInfo(
+                                        column.getColumnName(), new InFilterRuntimeFilterType()));
+                        break;
+                    default:
+                        LOG.info(
+                                "Cannot support runtime filter push down with type {} for column {}",
+                                indexType,
+                                column);
+                }
+            }
         }
         return result;
     }
 
     @Override
     public void applyRuntimeFiltering(
-            Map<String, List<String>> pushDownFields,
-            Map<String, List<Integer>> pushDownFieldIndices) {
+            Map<RuntimeFilterType, List<String>> pushDownFields,
+            Map<RuntimeFilterType, List<Integer>> pushDownFieldIndices) {
         checkState(
                 !streaming,
                 "Cannot apply dynamic filtering to Paimon table '%s' when streaming reading.",
@@ -292,17 +311,17 @@ public class DataTableSource extends BaseDataTableSource
                 table,
                 pushDownFields,
                 pushDownFieldIndices);
-        this.runtimeFilteringPushDownFields = pushDownFields;
-        this.runtimeFilteringPushDownFieldIndices = pushDownFieldIndices;
+        this.runtimeFilterPushDownFieldNames = pushDownFields;
+        this.runtimeFilterPushDownFieldIndices = pushDownFieldIndices;
     }
 
     @Override
-    protected Map<String, List<String>> runtimeFilteringFields() {
-        return runtimeFilteringPushDownFields;
+    protected Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames() {
+        return runtimeFilterPushDownFieldNames;
     }
 
     @Override
-    protected Map<String, List<Integer>> runtimeFilteringFieldIndices() {
-        return runtimeFilteringPushDownFieldIndices;
+    protected Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices() {
+        return runtimeFilterPushDownFieldIndices;
     }
 }

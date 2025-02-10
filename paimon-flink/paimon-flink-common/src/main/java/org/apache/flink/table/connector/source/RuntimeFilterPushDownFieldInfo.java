@@ -20,31 +20,33 @@ package org.apache.flink.table.connector.source;
 
 import org.apache.flink.annotation.PublicEvolving;
 
+import java.io.Serializable;
+
 /** Wrap runtime filter field name and type. */
 @PublicEvolving
-public class RuntimeFilterPushDownFieldInfo {
+public class RuntimeFilterPushDownFieldInfo implements Serializable {
     private final String fieldName;
-    private final String fieldType;
+    private final RuntimeFilterType filterType;
 
-    public RuntimeFilterPushDownFieldInfo(String fieldName, String fieldType) {
+    public RuntimeFilterPushDownFieldInfo(String fieldName, RuntimeFilterType filterType) {
         this.fieldName = fieldName;
-        this.fieldType = fieldType;
+        this.filterType = filterType;
     }
 
     public String getFieldName() {
         return fieldName;
     }
 
-    public String getFieldType() {
-        return fieldType;
+    public RuntimeFilterType getFieldType() {
+        return filterType;
     }
 
     public String toString() {
         return "RuntimeFilterPushDownFieldInfo{"
                 + "fieldName="
                 + fieldName
-                + ", fieldType="
-                + fieldType
+                + ", filterType="
+                + filterType
                 + '}';
     }
 }

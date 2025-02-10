@@ -31,6 +31,7 @@ import org.apache.paimon.table.source.TableScan;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
+import org.apache.flink.table.connector.source.RuntimeFilterType;
 
 import javax.annotation.Nullable;
 
@@ -51,8 +52,8 @@ public class StaticFileStoreSource extends FlinkSource {
 
     @Nullable private final DynamicPartitionFilteringInfo dynamicPartitionFilteringInfo;
 
-    @Nullable private final Map<String, List<String>> runtimeFilteringPushDownFields;
-    @Nullable private final Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices;
+    @Nullable private final Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames;
+    @Nullable private final Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices;
     @Nullable private final Table table;
 
     public StaticFileStoreSource(
@@ -88,16 +89,16 @@ public class StaticFileStoreSource extends FlinkSource {
             int splitBatchSize,
             SplitAssignMode splitAssignMode,
             @Nullable DynamicPartitionFilteringInfo dynamicPartitionFilteringInfo,
-            @Nullable Map<String, List<String>> runtimeFilteringPushDownFields,
-            @Nullable Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices,
+            @Nullable Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames,
+            @Nullable Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices,
             @Nullable Table table,
             @Nullable NestedProjectedRowData rowData) {
         super(readBuilder, limit, rowData);
         this.splitBatchSize = splitBatchSize;
         this.splitAssignMode = splitAssignMode;
         this.dynamicPartitionFilteringInfo = dynamicPartitionFilteringInfo;
-        this.runtimeFilteringPushDownFields = runtimeFilteringPushDownFields;
-        this.runtimeFilteringPushDownFieldIndices = runtimeFilteringPushDownFieldIndices;
+        this.runtimeFilterPushDownFieldNames = runtimeFilterPushDownFieldNames;
+        this.runtimeFilterPushDownFieldIndices = runtimeFilterPushDownFieldIndices;
         this.table = table;
     }
 
@@ -124,8 +125,8 @@ public class StaticFileStoreSource extends FlinkSource {
                 readBuilder,
                 splitBatchSize,
                 splitAssignMode,
-                runtimeFilteringPushDownFields,
-                runtimeFilteringPushDownFieldIndices,
+                runtimeFilterPushDownFieldNames,
+                runtimeFilterPushDownFieldIndices,
                 table);
     }
 

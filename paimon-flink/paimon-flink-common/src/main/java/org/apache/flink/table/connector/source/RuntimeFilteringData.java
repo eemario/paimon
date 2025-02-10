@@ -60,7 +60,7 @@ public class RuntimeFilteringData implements Serializable {
     /** Whether the data actually does filter. If false, everything is considered contained. */
     private final boolean isFiltering;
 
-    @Nullable private final String filterType;
+    @Nullable private final RuntimeFilterType filterType;
 
     private transient volatile boolean prepared = false;
     private transient Map<Integer, List<RowData>> dataMap;
@@ -71,7 +71,7 @@ public class RuntimeFilteringData implements Serializable {
             RowType rowType,
             List<byte[]> serializedData,
             boolean isFiltering,
-            @Nullable String filterType) {
+            @Nullable RuntimeFilterType filterType) {
         this.typeInfo = checkNotNull(typeInfo);
         this.rowType = checkNotNull(rowType);
         this.serializedData = checkNotNull(serializedData);
@@ -87,7 +87,7 @@ public class RuntimeFilteringData implements Serializable {
         return isFiltering;
     }
 
-    public String getFilterType() {
+    public RuntimeFilterType getFilterType() {
         return filterType;
     }
 

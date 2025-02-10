@@ -241,7 +241,7 @@ public class BitmapFileIndexMeta {
         if (hasNullValue) {
             nullValueOffset = in.readInt();
         }
-        bitmapOffsets = new LinkedHashMap<>();
+        bitmapOffsets = new LinkedHashMap<>(nonNullBitmapNumber);
         for (int i = 0; i < nonNullBitmapNumber; i++) {
             bitmapOffsets.put(valueReader.get(), in.readInt());
         }

@@ -44,6 +44,7 @@ import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.source.LookupTableSource;
+import org.apache.flink.table.connector.source.RuntimeFilterType;
 import org.apache.flink.table.connector.source.SourceProvider;
 import org.apache.flink.table.connector.source.abilities.SupportsAggregatePushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsWatermarkPushDown;
@@ -202,8 +203,8 @@ public abstract class BaseDataTableSource extends FlinkTableSource
                         .limit(limit)
                         .watermarkStrategy(watermarkStrategy)
                         .dynamicPartitionFilteringFields(dynamicPartitionFilteringFields())
-                        .runtimeFilteringPushDownFields(runtimeFilteringFields())
-                        .runtimeFilteringPushDownFieldIndices(runtimeFilteringFieldIndices());
+                        .runtimeFilterPushDownFieldNames(runtimeFilterPushDownFieldNames())
+                        .runtimeFilterPushDownFieldIndices(runtimeFilterPushDownFieldIndices());
 
         return new PaimonDataStreamScanProvider(
                 !streaming,
@@ -237,9 +238,9 @@ public abstract class BaseDataTableSource extends FlinkTableSource
 
     protected abstract List<String> dynamicPartitionFilteringFields();
 
-    protected abstract Map<String, List<String>> runtimeFilteringFields();
+    protected abstract Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames();
 
-    protected abstract Map<String, List<Integer>> runtimeFilteringFieldIndices();
+    protected abstract Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices();
 
     @Override
     public void applyWatermark(WatermarkStrategy<RowData> watermarkStrategy) {

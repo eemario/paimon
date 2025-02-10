@@ -48,6 +48,7 @@ import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.flink.api.connector.source.SupportsHandleExecutionAttemptSourceEvent;
 import org.apache.flink.table.connector.source.DynamicFilteringEvent;
+import org.apache.flink.table.connector.source.RuntimeFilterType;
 import org.apache.flink.table.connector.source.RuntimeFilteringData;
 import org.apache.flink.table.connector.source.RuntimeFilteringEvent;
 import org.apache.flink.table.data.RowData;
@@ -86,8 +87,8 @@ public class StaticFileStoreSplitEnumerator
 
     @Nullable private final DynamicPartitionFilteringInfo dynamicPartitionFilteringInfo;
 
-    @Nullable Map<String, List<String>> runtimeFilteringPushDownFields;
-    @Nullable Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices;
+    @Nullable Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames;
+    @Nullable Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices;
     @Nullable private final ReadBuilder readBuilder;
     @Nullable private final Integer splitBatchSize;
     @Nullable private final FlinkConnectorOptions.SplitAssignMode splitAssignMode;
@@ -126,8 +127,8 @@ public class StaticFileStoreSplitEnumerator
             @Nullable ReadBuilder readBuilder,
             @Nullable Integer splitBatchSize,
             @Nullable FlinkConnectorOptions.SplitAssignMode splitAssignMode,
-            @Nullable Map<String, List<String>> runtimeFilteringPushDownFields,
-            @Nullable Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices,
+            @Nullable Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames,
+            @Nullable Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices,
             @Nullable Table table) {
         this.context = context;
         this.snapshot = snapshot;
@@ -136,8 +137,8 @@ public class StaticFileStoreSplitEnumerator
         this.readBuilder = readBuilder;
         this.splitBatchSize = splitBatchSize;
         this.splitAssignMode = splitAssignMode;
-        this.runtimeFilteringPushDownFields = runtimeFilteringPushDownFields;
-        this.runtimeFilteringPushDownFieldIndices = runtimeFilteringPushDownFieldIndices;
+        this.runtimeFilterPushDownFieldNames = runtimeFilterPushDownFieldNames;
+        this.runtimeFilterPushDownFieldIndices = runtimeFilterPushDownFieldIndices;
         this.table = table;
     }
 
@@ -272,26 +273,35 @@ public class StaticFileStoreSplitEnumerator
                     context, splitBatchSize, splitAssignMode, Collections.emptyList());
         }
 
-        if (runtimeFilteringPushDownFields == null
-                || runtimeFilteringPushDownFieldIndices == null) {
+        if (runtimeFilterPushDownFieldNames == null || runtimeFilterPushDownFieldIndices == null) {
             LOG.info(
-                    "Cannot apply runtime filtering because runtimeFilteringPushDownFields hasn't been set.");
+                    "Cannot apply runtime filtering because runtimeFilterPushDownFields hasn't been set.");
             return splitAssigner;
         }
-        String filterType = runtimeFilteringData.getFilterType();
+        RuntimeFilterType filterType = runtimeFilteringData.getFilterType();
         checkNotNull(
                 filterType, "Cannot apply runtime filtering because filterType hasn't been set.");
 
-        List<String> fieldNames = runtimeFilteringPushDownFields.get(filterType);
-        List<Integer> filterFieldIndices = runtimeFilteringPushDownFieldIndices.get(filterType);
+        List<String> filterFieldNames = runtimeFilterPushDownFieldNames.get(filterType);
+        List<Integer> filterFieldIndices = runtimeFilterPushDownFieldIndices.get(filterType);
+        checkNotNull(
+                filterFieldNames,
+                "Cannot apply runtime filtering because runtimeFilterPushDownFieldNames doesn't contain "
+                        + filterType);
+        checkNotNull(
+                filterFieldIndices,
+                "Cannot apply runtime filtering because runtimeFilterPushDownFieldIndices doesn't contain "
+                        + filterType);
+
         RowData.FieldGetter[] fieldGetters = runtimeFilteringData.getFieldGetters();
         RowType readType = readBuilder.readType();
-        int[] readFieldIndices = fieldNames.stream().mapToInt(readType::getFieldIndex).toArray();
+        int[] readFieldIndices =
+                filterFieldNames.stream().mapToInt(readType::getFieldIndex).toArray();
         Map<String, List<Object>> filterValues = new HashMap<>();
-        for (int i = 0; i < fieldNames.size(); i++) {
+        for (int i = 0; i < filterFieldNames.size(); i++) {
             for (RowData rowData : data) {
                 filterValues
-                        .computeIfAbsent(fieldNames.get(i), k -> new ArrayList<>())
+                        .computeIfAbsent(filterFieldNames.get(i), k -> new ArrayList<>())
                         .add(fieldGetters[filterFieldIndices.get(i)].getFieldOrNull(rowData));
             }
         }
@@ -299,7 +309,7 @@ public class StaticFileStoreSplitEnumerator
                 "Source for table {} received RuntimeFilteringData: {}, current push down fields: {} and indices: {}.",
                 table,
                 runtimeFilteringData,
-                fieldNames,
+                filterFieldNames,
                 filterFieldIndices);
         checkState(
                 splitAssigner.remainingSplits().stream()
@@ -353,8 +363,8 @@ public class StaticFileStoreSplitEnumerator
                             // if one column does not contain any of the values, we can skip the
                             // data file
                             boolean remain = true;
-                            for (int i = 0; i < fieldNames.size(); i++) {
-                                String fieldName = fieldNames.get(i);
+                            for (int i = 0; i < filterFieldNames.size(); i++) {
+                                String fieldName = filterFieldNames.get(i);
                                 Set<FileIndexReader> fileIndexReaders =
                                         reader.readColumnIndex(fieldName);
                                 for (FileIndexReader fileIndexReader : fileIndexReaders) {
@@ -386,13 +396,15 @@ public class StaticFileStoreSplitEnumerator
                         LOG.info("Found no index file for {}", dataFile.fileName());
                     }
                     if (!skip) {
-                        LOG.info("Do not skip data file {}", dataFile.fileName());
+                        //                        LOG.info("Do not skip data file {}",
+                        // dataFile.fileName());
                         files.computeIfAbsent(dataSplit.partition(), k -> new LinkedHashMap<>())
                                 .computeIfAbsent(dataSplit.bucket(), k -> new ArrayList<>())
                                 .add(dataFile);
                     } else {
                         skipCount += 1;
-                        LOG.info("Skip data file {}", dataFile.fileName());
+                        //                        LOG.info("Skip data file {}",
+                        // dataFile.fileName());
                     }
                     totalCount += 1;
                 }

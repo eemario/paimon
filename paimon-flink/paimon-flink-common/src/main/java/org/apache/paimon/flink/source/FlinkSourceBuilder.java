@@ -48,6 +48,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.connector.source.RuntimeFilterType;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.DataFormatConverters;
 import org.apache.flink.table.runtime.typeutils.ExternalTypeInfo;
@@ -92,8 +93,8 @@ public class FlinkSourceBuilder {
     @Nullable private Long limit;
     @Nullable private WatermarkStrategy<RowData> watermarkStrategy;
     @Nullable private DynamicPartitionFilteringInfo dynamicPartitionFilteringInfo;
-    @Nullable private Map<String, List<String>> runtimeFilteringPushDownFields;
-    @Nullable private Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices;
+    @Nullable private Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames;
+    @Nullable private Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices;
 
     public FlinkSourceBuilder(Table table) {
         this.table = table;
@@ -169,27 +170,27 @@ public class FlinkSourceBuilder {
         return this;
     }
 
-    public FlinkSourceBuilder runtimeFilteringPushDownFields(
-            Map<String, List<String>> runtimeFilteringPushDownFields) {
-        if (runtimeFilteringPushDownFields != null && !runtimeFilteringPushDownFields.isEmpty()) {
+    public FlinkSourceBuilder runtimeFilterPushDownFieldNames(
+            Map<RuntimeFilterType, List<String>> runtimeFilterPushDownFieldNames) {
+        if (runtimeFilterPushDownFieldNames != null && !runtimeFilterPushDownFieldNames.isEmpty()) {
             checkState(
                     table instanceof FileStoreTable,
                     "Only Paimon FileStoreTable supports runtime filtering but get %s.",
                     table.getClass().getName());
-            this.runtimeFilteringPushDownFields = runtimeFilteringPushDownFields;
+            this.runtimeFilterPushDownFieldNames = runtimeFilterPushDownFieldNames;
         }
         return this;
     }
 
-    public FlinkSourceBuilder runtimeFilteringPushDownFieldIndices(
-            Map<String, List<Integer>> runtimeFilteringPushDownFieldIndices) {
-        if (runtimeFilteringPushDownFieldIndices != null
-                && !runtimeFilteringPushDownFieldIndices.isEmpty()) {
+    public FlinkSourceBuilder runtimeFilterPushDownFieldIndices(
+            Map<RuntimeFilterType, List<Integer>> runtimeFilterPushDownFieldIndices) {
+        if (runtimeFilterPushDownFieldIndices != null
+                && !runtimeFilterPushDownFieldIndices.isEmpty()) {
             checkState(
                     table instanceof FileStoreTable,
                     "Only Paimon FileStoreTable supports runtime filtering but get %s.",
                     table.getClass().getName());
-            this.runtimeFilteringPushDownFieldIndices = runtimeFilteringPushDownFieldIndices;
+            this.runtimeFilterPushDownFieldIndices = runtimeFilterPushDownFieldIndices;
         }
         return this;
     }
@@ -221,8 +222,8 @@ public class FlinkSourceBuilder {
                         options.get(FlinkConnectorOptions.SCAN_SPLIT_ENUMERATOR_BATCH_SIZE),
                         options.get(FlinkConnectorOptions.SCAN_SPLIT_ENUMERATOR_ASSIGN_MODE),
                         dynamicPartitionFilteringInfo,
-                        runtimeFilteringPushDownFields,
-                        runtimeFilteringPushDownFieldIndices,
+                        runtimeFilterPushDownFieldNames,
+                        runtimeFilterPushDownFieldIndices,
                         table,
                         outerProject()));
     }
